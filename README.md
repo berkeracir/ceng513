@@ -6,3 +6,6 @@
   * https://kb.ettus.com/Building_and_Installing_the_USRP_Open-Source_Toolchain_(UHD_and_GNU_Radio)_on_Linux => https://github.com/gnuradio/gnuradio
     * https://wiki.gnuradio.org/index.php/Main_Page => https://wiki.gnuradio.org/index.php/Tutorials#GNU_Radio_Academy
   * https://files.ettus.com/manual/page_transport.html#transport_usb_udev
+
+
+* https://www.ijeat.org/wp-content/uploads/papers/v9i1/A1140109119.pdf
