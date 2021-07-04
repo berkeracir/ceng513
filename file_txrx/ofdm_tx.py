@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0
 #
 # GNU Radio Python Flow Graph
-# Title: OFDM Transmitter and Receiver (Without using USRPs)
+# Title: OFDM Transmitter
 # Author: Berker
 # GNU Radio version: 3.8.1.0
 
@@ -40,12 +40,12 @@ from gnuradio import uhd
 import time
 from gnuradio import qtgui
 
-class ofdm_txrx(gr.top_block, Qt.QWidget):
+class ofdm_tx(gr.top_block, Qt.QWidget):
 
     def __init__(self):
-        gr.top_block.__init__(self, "OFDM Transmitter and Receiver (Without using USRPs)")
+        gr.top_block.__init__(self, "OFDM Transmitter")
         Qt.QWidget.__init__(self)
-        self.setWindowTitle("OFDM Transmitter and Receiver (Without using USRPs)")
+        self.setWindowTitle("OFDM Transmitter")
         qtgui.util.check_set_qss()
         try:
             self.setWindowIcon(Qt.QIcon.fromTheme('gnuradio-grc'))
@@ -63,7 +63,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.top_grid_layout = Qt.QGridLayout()
         self.top_layout.addLayout(self.top_grid_layout)
 
-        self.settings = Qt.QSettings("GNU Radio", "ofdm_txrx")
+        self.settings = Qt.QSettings("GNU Radio", "ofdm_tx")
 
         try:
             if StrictVersion(Qt.qVersion()) < StrictVersion("5.0.0"):
@@ -80,7 +80,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.carrier_count = carrier_count = 26
         self.occupied_carriers0 = occupied_carriers0 = [c for c in range(-carrier_count, carrier_count+1) if c not in pilot_carriers0 and c != 0]
         self.pilot_symbols0 = pilot_symbols0 = (1, 1, 1, -1,)
-        self.payload_modulation = payload_modulation = digital.constellation_16qam()
+        self.payload_modulation = payload_modulation = digital.constellation_qpsk()
         self.packet_len_key = packet_len_key = "packet_len"
         self.occupied_carriers = occupied_carriers = (occupied_carriers0,)
         self.header_modulation = header_modulation = digital.constellation_bpsk()
@@ -88,15 +88,15 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.fft_len = fft_len = 64
         self.sync_word2 = sync_word2 = [0, 0, 0, 0, 0, 0, -1, -1, -1, -1, 1, 1, -1, -1, -1, 1, -1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, 1, -1, -1, 1, -1, 0, 1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0]
         self.sync_word1 = sync_word1 = [0., 0., 0., 0., 0., 0., 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 0., 0., 0., 0., 0.]
-        self.samp_rate = samp_rate = int(500e3)
+        self.samp_rate = samp_rate = int(2e6)
         self.rolloff = rolloff = 0
         self.pilot_symbols = pilot_symbols = (pilot_symbols0,)
         self.pilot_carriers = pilot_carriers = (pilot_carriers0,)
         self.packet_len = packet_len = 96
         self.header_format = header_format = digital.header_format_ofdm(occupied_carriers, n_syms=1, len_key_name=packet_len_key, frame_key_name=frame_len_key, bits_per_header_sym=header_modulation.bits_per_symbol(), bits_per_payload_sym=payload_modulation.bits_per_symbol(), scramble_header=False)
-        self.gain = gain = 15
+        self.gain = gain = 80
         self.cp_len = cp_len = fft_len//4
-        self.center_freq = center_freq = 2e9
+        self.center_freq = center_freq = 2.5e9
         self.bits_per_byte = bits_per_byte = 8
 
         ##################################################
@@ -114,15 +114,14 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.uhd_usrp_sink_0.set_center_freq(center_freq, 0)
         self.uhd_usrp_sink_0.set_gain(gain, 0)
         self.uhd_usrp_sink_0.set_antenna('TX/RX', 0)
-        self.uhd_usrp_sink_0.set_bandwidth(samp_rate, 0)
         self.uhd_usrp_sink_0.set_samp_rate(samp_rate)
         # No synchronization enforced.
         self.qtgui_freq_sink_x_0 = qtgui.freq_sink_c(
             1024, #size
             firdes.WIN_BLACKMAN_hARRIS, #wintype
-            0, #fc
+            center_freq, #fc
             samp_rate, #bw
-            "", #name
+            "Transmitted Signal", #name
             1
         )
         self.qtgui_freq_sink_x_0.set_update_time(0.10)
@@ -171,7 +170,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.blocks_repack_bits_bb_1 = blocks.repack_bits_bb(bits_per_byte, header_modulation.bits_per_symbol(), packet_len_key, False, gr.GR_LSB_FIRST)
         self.blocks_repack_bits_bb_0 = blocks.repack_bits_bb(bits_per_byte, payload_modulation.bits_per_symbol(), packet_len_key, False, gr.GR_LSB_FIRST)
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_cc(0.05)
-        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', True, 0, 0)
+        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', False, 0, 0)
         self.blocks_file_source_0.set_begin_tag(pmt.PMT_NIL)
 
 
@@ -197,7 +196,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.fft_vxx_0, 0), (self.digital_ofdm_cyclic_prefixer_0, 0))
 
     def closeEvent(self, event):
-        self.settings = Qt.QSettings("GNU Radio", "ofdm_txrx")
+        self.settings = Qt.QSettings("GNU Radio", "ofdm_tx")
         self.settings.setValue("geometry", self.saveGeometry())
         event.accept()
 
@@ -287,9 +286,8 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
-        self.qtgui_freq_sink_x_0.set_frequency_range(0, self.samp_rate)
+        self.qtgui_freq_sink_x_0.set_frequency_range(self.center_freq, self.samp_rate)
         self.uhd_usrp_sink_0.set_samp_rate(self.samp_rate)
-        self.uhd_usrp_sink_0.set_bandwidth(self.samp_rate, 0)
 
     def get_rolloff(self):
         return self.rolloff
@@ -341,6 +339,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
 
     def set_center_freq(self, center_freq):
         self.center_freq = center_freq
+        self.qtgui_freq_sink_x_0.set_frequency_range(self.center_freq, self.samp_rate)
         self.uhd_usrp_sink_0.set_center_freq(self.center_freq, 0)
 
     def get_bits_per_byte(self):
@@ -353,7 +352,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
 
 
 
-def main(top_block_cls=ofdm_txrx, options=None):
+def main(top_block_cls=ofdm_tx, options=None):
 
     if StrictVersion("4.5.0") <= StrictVersion(Qt.qVersion()) < StrictVersion("5.0.0"):
         style = gr.prefs().get_string('qtgui', 'style', 'raster')
