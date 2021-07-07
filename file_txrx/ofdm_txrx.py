@@ -9,28 +9,12 @@
 # Author: Berker
 # GNU Radio version: 3.8.1.0
 
-from distutils.version import StrictVersion
-
-if __name__ == '__main__':
-    import ctypes
-    import sys
-    if sys.platform.startswith('linux'):
-        try:
-            x11 = ctypes.cdll.LoadLibrary('libX11.so')
-            x11.XInitThreads()
-        except:
-            print("Warning: failed to XInitThreads()")
-
-from PyQt5 import Qt
-from gnuradio import qtgui
-import sip
 from gnuradio import analog
 from gnuradio import blocks
 import pmt
 from gnuradio import channels
 from gnuradio.filter import firdes
 from gnuradio import digital
-from gnuradio import fec
 from gnuradio import fft
 from gnuradio.fft import window
 from gnuradio import gr
@@ -39,40 +23,11 @@ import signal
 from argparse import ArgumentParser
 from gnuradio.eng_arg import eng_float, intx
 from gnuradio import eng_notation
-from gnuradio import qtgui
 
-class ofdm_txrx(gr.top_block, Qt.QWidget):
+class ofdm_txrx(gr.top_block):
 
     def __init__(self):
         gr.top_block.__init__(self, "OFDM Transmitter and Receiver (Without using USRPs)")
-        Qt.QWidget.__init__(self)
-        self.setWindowTitle("OFDM Transmitter and Receiver (Without using USRPs)")
-        qtgui.util.check_set_qss()
-        try:
-            self.setWindowIcon(Qt.QIcon.fromTheme('gnuradio-grc'))
-        except:
-            pass
-        self.top_scroll_layout = Qt.QVBoxLayout()
-        self.setLayout(self.top_scroll_layout)
-        self.top_scroll = Qt.QScrollArea()
-        self.top_scroll.setFrameStyle(Qt.QFrame.NoFrame)
-        self.top_scroll_layout.addWidget(self.top_scroll)
-        self.top_scroll.setWidgetResizable(True)
-        self.top_widget = Qt.QWidget()
-        self.top_scroll.setWidget(self.top_widget)
-        self.top_layout = Qt.QVBoxLayout(self.top_widget)
-        self.top_grid_layout = Qt.QGridLayout()
-        self.top_layout.addLayout(self.top_grid_layout)
-
-        self.settings = Qt.QSettings("GNU Radio", "ofdm_txrx")
-
-        try:
-            if StrictVersion(Qt.qVersion()) < StrictVersion("5.0.0"):
-                self.restoreGeometry(self.settings.value("geometry").toByteArray())
-            else:
-                self.restoreGeometry(self.settings.value("geometry"))
-        except:
-            pass
 
         ##################################################
         # Variables
@@ -104,42 +59,9 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         ##################################################
         # Blocks
         ##################################################
-        self.qtgui_number_sink_0 = qtgui.number_sink(
-            gr.sizeof_float,
-            0,
-            qtgui.NUM_GRAPH_HORIZ,
-            1
-        )
-        self.qtgui_number_sink_0.set_update_time(0.10)
-        self.qtgui_number_sink_0.set_title("")
-
-        labels = ['', '', '', '', '',
-            '', '', '', '', '']
-        units = ['', '', '', '', '',
-            '', '', '', '', '']
-        colors = [("black", "black"), ("black", "black"), ("black", "black"), ("black", "black"), ("black", "black"),
-            ("black", "black"), ("black", "black"), ("black", "black"), ("black", "black"), ("black", "black")]
-        factor = [1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1]
-
-        for i in range(1):
-            self.qtgui_number_sink_0.set_min(i, -1)
-            self.qtgui_number_sink_0.set_max(i, 1)
-            self.qtgui_number_sink_0.set_color(i, colors[i][0], colors[i][1])
-            if len(labels[i]) == 0:
-                self.qtgui_number_sink_0.set_label(i, "Data {0}".format(i))
-            else:
-                self.qtgui_number_sink_0.set_label(i, labels[i])
-            self.qtgui_number_sink_0.set_unit(i, units[i])
-            self.qtgui_number_sink_0.set_factor(i, factor[i])
-
-        self.qtgui_number_sink_0.enable_autoscale(False)
-        self._qtgui_number_sink_0_win = sip.wrapinstance(self.qtgui_number_sink_0.pyqwidget(), Qt.QWidget)
-        self.top_grid_layout.addWidget(self._qtgui_number_sink_0_win)
         self.fft_vxx_1_0 = fft.fft_vcc(fft_len, True, (), True, 1)
         self.fft_vxx_1 = fft.fft_vcc(fft_len, True, (), True, 1)
         self.fft_vxx_0 = fft.fft_vcc(fft_len, False, (), True, 1)
-        self.fec_ber_bf_0 = fec.ber_bf(False, 100, -7.0)
         self.digital_protocol_formatter_bb_0 = digital.protocol_formatter_bb(header_format, packet_len_key)
         self.digital_packet_headerparser_b_0 = digital.packet_headerparser_b(header_formatter.base())
         self.digital_ofdm_sync_sc_cfb_0 = digital.ofdm_sync_sc_cfb(fft_len, cp_len, False, 0.9)
@@ -162,30 +84,37 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
             samp_rate,
             (),
             0)
+        self.digital_crc32_bb_1 = digital.crc32_bb(True, packet_len_key, True)
         self.digital_crc32_bb_0 = digital.crc32_bb(False, packet_len_key, True)
         self.digital_constellation_decoder_cb_0_0 = digital.constellation_decoder_cb(payload_modulation.base())
         self.digital_constellation_decoder_cb_0 = digital.constellation_decoder_cb(header_modulation.base())
         self.digital_chunks_to_symbols_xx_0_0 = digital.chunks_to_symbols_bc(payload_modulation.points(), payload_modulation.dimensionality())
         self.digital_chunks_to_symbols_xx_0 = digital.chunks_to_symbols_bc(header_modulation.points(), header_modulation.dimensionality())
         self.channels_channel_model_0 = channels.channel_model(
-            noise_voltage=0.1,
+            noise_voltage=0.0,
             frequency_offset=0.0,
             epsilon=1.0,
             taps=[1.0 + 1.0j],
             noise_seed=0,
             block_tags=True)
         self.blocks_throttle_0 = blocks.throttle(gr.sizeof_gr_complex*1, samp_rate,True)
+        self.blocks_tagged_stream_to_pdu_0 = blocks.tagged_stream_to_pdu(blocks.byte_t, packet_len_key)
         self.blocks_tagged_stream_mux_0 = blocks.tagged_stream_mux(gr.sizeof_gr_complex*1, packet_len_key, 0)
         self.blocks_tag_gate_0 = blocks.tag_gate(gr.sizeof_gr_complex * 1, False)
         self.blocks_tag_gate_0.set_single_key("")
+        self.blocks_tag_debug_0 = blocks.tag_debug(gr.sizeof_char*1, 'Received Bytes', "")
+        self.blocks_tag_debug_0.set_display(False)
         self.blocks_stream_to_tagged_stream_0 = blocks.stream_to_tagged_stream(gr.sizeof_char, 1, packet_len, packet_len_key)
         self.blocks_repack_bits_bb_2 = blocks.repack_bits_bb(payload_modulation.bits_per_symbol(), bits_per_byte, packet_len_key, False, gr.GR_LSB_FIRST)
         self.blocks_repack_bits_bb_1 = blocks.repack_bits_bb(bits_per_byte, header_modulation.bits_per_symbol(), packet_len_key, False, gr.GR_LSB_FIRST)
         self.blocks_repack_bits_bb_0 = blocks.repack_bits_bb(bits_per_byte, payload_modulation.bits_per_symbol(), packet_len_key, False, gr.GR_LSB_FIRST)
         self.blocks_multiply_xx_0 = blocks.multiply_vcc(1)
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_cc(0.05)
-        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', True, 0, 0)
+        self.blocks_message_debug_0 = blocks.message_debug()
+        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', False, 0, 0)
         self.blocks_file_source_0.set_begin_tag(pmt.PMT_NIL)
+        self.blocks_file_sink_0 = blocks.file_sink(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/output.txt', False)
+        self.blocks_file_sink_0.set_unbuffered(True)
         self.blocks_delay_0 = blocks.delay(gr.sizeof_gr_complex*1, fft_len + cp_len)
         self.analog_frequency_modulator_fc_0 = analog.frequency_modulator_fc(-2.0/fft_len)
 
@@ -194,6 +123,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         ##################################################
         # Connections
         ##################################################
+        self.msg_connect((self.blocks_tagged_stream_to_pdu_0, 'pdus'), (self.blocks_message_debug_0, 'print'))
         self.msg_connect((self.digital_packet_headerparser_b_0, 'header_data'), (self.digital_header_payload_demux_0, 'header_data'))
         self.connect((self.analog_frequency_modulator_fc_0, 0), (self.blocks_multiply_xx_0, 1))
         self.connect((self.blocks_delay_0, 0), (self.blocks_multiply_xx_0, 0))
@@ -202,7 +132,7 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.blocks_multiply_xx_0, 0), (self.digital_header_payload_demux_0, 0))
         self.connect((self.blocks_repack_bits_bb_0, 0), (self.digital_chunks_to_symbols_xx_0_0, 0))
         self.connect((self.blocks_repack_bits_bb_1, 0), (self.digital_chunks_to_symbols_xx_0, 0))
-        self.connect((self.blocks_repack_bits_bb_2, 0), (self.fec_ber_bf_0, 1))
+        self.connect((self.blocks_repack_bits_bb_2, 0), (self.digital_crc32_bb_1, 0))
         self.connect((self.blocks_stream_to_tagged_stream_0, 0), (self.digital_crc32_bb_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.blocks_throttle_0, 0))
         self.connect((self.blocks_tagged_stream_mux_0, 0), (self.digital_ofdm_carrier_allocator_cvc_0, 0))
@@ -215,7 +145,9 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.digital_constellation_decoder_cb_0_0, 0), (self.blocks_repack_bits_bb_2, 0))
         self.connect((self.digital_crc32_bb_0, 0), (self.blocks_repack_bits_bb_0, 0))
         self.connect((self.digital_crc32_bb_0, 0), (self.digital_protocol_formatter_bb_0, 0))
-        self.connect((self.digital_crc32_bb_0, 0), (self.fec_ber_bf_0, 0))
+        self.connect((self.digital_crc32_bb_1, 0), (self.blocks_file_sink_0, 0))
+        self.connect((self.digital_crc32_bb_1, 0), (self.blocks_tag_debug_0, 0))
+        self.connect((self.digital_crc32_bb_1, 0), (self.blocks_tagged_stream_to_pdu_0, 0))
         self.connect((self.digital_header_payload_demux_0, 0), (self.fft_vxx_1, 0))
         self.connect((self.digital_header_payload_demux_0, 1), (self.fft_vxx_1_0, 0))
         self.connect((self.digital_ofdm_carrier_allocator_cvc_0, 0), (self.fft_vxx_0, 0))
@@ -228,15 +160,9 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.digital_ofdm_sync_sc_cfb_0, 0), (self.analog_frequency_modulator_fc_0, 0))
         self.connect((self.digital_ofdm_sync_sc_cfb_0, 1), (self.digital_header_payload_demux_0, 1))
         self.connect((self.digital_protocol_formatter_bb_0, 0), (self.blocks_repack_bits_bb_1, 0))
-        self.connect((self.fec_ber_bf_0, 0), (self.qtgui_number_sink_0, 0))
         self.connect((self.fft_vxx_0, 0), (self.digital_ofdm_cyclic_prefixer_0, 0))
         self.connect((self.fft_vxx_1, 0), (self.digital_ofdm_chanest_vcvc_0, 0))
         self.connect((self.fft_vxx_1_0, 0), (self.digital_ofdm_frame_equalizer_vcvc_0_0, 0))
-
-    def closeEvent(self, event):
-        self.settings = Qt.QSettings("GNU Radio", "ofdm_txrx")
-        self.settings.setValue("geometry", self.saveGeometry())
-        event.accept()
 
     def get_pilot_carriers0(self):
         return self.pilot_carriers0
@@ -408,31 +334,18 @@ class ofdm_txrx(gr.top_block, Qt.QWidget):
 
 
 def main(top_block_cls=ofdm_txrx, options=None):
-
-    if StrictVersion("4.5.0") <= StrictVersion(Qt.qVersion()) < StrictVersion("5.0.0"):
-        style = gr.prefs().get_string('qtgui', 'style', 'raster')
-        Qt.QApplication.setGraphicsSystem(style)
-    qapp = Qt.QApplication(sys.argv)
-
     tb = top_block_cls()
-    tb.start()
-    tb.show()
 
     def sig_handler(sig=None, frame=None):
-        Qt.QApplication.quit()
+        tb.stop()
+        tb.wait()
+        sys.exit(0)
 
     signal.signal(signal.SIGINT, sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
 
-    timer = Qt.QTimer()
-    timer.start(500)
-    timer.timeout.connect(lambda: None)
-
-    def quitting():
-        tb.stop()
-        tb.wait()
-    qapp.aboutToQuit.connect(quitting)
-    qapp.exec_()
+    tb.start()
+    tb.wait()
 
 
 if __name__ == '__main__':
