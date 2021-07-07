@@ -84,7 +84,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.occupied_carriers0 = occupied_carriers0 = [c for c in range(-carrier_count, carrier_count+1) if c not in pilot_carriers0 and c != 0]
         self.pilot_symbols = pilot_symbols = (pilot_symbols0,)
         self.pilot_carriers = pilot_carriers = (pilot_carriers0,)
-        self.payload_modulation = payload_modulation = digital.constellation_qpsk()
+        self.payload_modulation = payload_modulation = digital.constellation_bpsk()
         self.packet_len_key = packet_len_key = "packet_len"
         self.occupied_carriers = occupied_carriers = (occupied_carriers0,)
         self.header_modulation = header_modulation = digital.constellation_bpsk()
@@ -93,12 +93,13 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.tx_gain = tx_gain = 80
         self.sync_word2 = sync_word2 = [0, 0, 0, 0, 0, 0, -1, -1, -1, -1, 1, 1, -1, -1, -1, 1, -1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, 1, -1, -1, 1, -1, 0, 1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0]
         self.sync_word1 = sync_word1 = [0., 0., 0., 0., 0., 0., 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 0., 0., 0., 0., 0.]
-        self.samp_rate = samp_rate = int(1e6)
-        self.rx_gain = rx_gain = 20
+        self.samp_rate = samp_rate = int(5e6)
+        self.rx_gain = rx_gain = 40
         self.rolloff = rolloff = 0
         self.payload_equalizer = payload_equalizer = digital.ofdm_equalizer_simpledfe(fft_len, payload_modulation.base(), occupied_carriers, pilot_carriers, pilot_symbols, 1)
         self.packet_len = packet_len = 96
-        self.packet_count = packet_count = 100
+        self.packet_count = packet_count = 10000
+        self.number_of_points = number_of_points = 1024
         self.header_formatter = header_formatter = digital.packet_header_ofdm(occupied_carriers, n_syms=1, len_tag_key=packet_len_key, frame_len_tag_key=frame_len_key, bits_per_header_sym=header_modulation.bits_per_symbol(), bits_per_payload_sym=payload_modulation.bits_per_symbol(), scramble_header=False)
         self.header_format = header_format = digital.header_format_ofdm(occupied_carriers, n_syms=1, len_key_name=packet_len_key, frame_key_name=frame_len_key, bits_per_header_sym=header_modulation.bits_per_symbol(), bits_per_payload_sym=payload_modulation.bits_per_symbol(), scramble_header=False)
         self.header_equalizer = header_equalizer = digital.ofdm_equalizer_simpledfe(fft_len, header_modulation.base(), occupied_carriers, pilot_carriers, pilot_symbols)
@@ -126,13 +127,18 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.tab_layout_1 = Qt.QBoxLayout(Qt.QBoxLayout.TopToBottom, self.tab_widget_1)
         self.tab_grid_layout_1 = Qt.QGridLayout()
         self.tab_layout_1.addLayout(self.tab_grid_layout_1)
-        self.tab.addTab(self.tab_widget_1, 'Constellation')
+        self.tab.addTab(self.tab_widget_1, 'Time')
+        self.tab_widget_2 = Qt.QWidget()
+        self.tab_layout_2 = Qt.QBoxLayout(Qt.QBoxLayout.TopToBottom, self.tab_widget_2)
+        self.tab_grid_layout_2 = Qt.QGridLayout()
+        self.tab_layout_2.addLayout(self.tab_grid_layout_2)
+        self.tab.addTab(self.tab_widget_2, 'Constellation')
         self.top_grid_layout.addWidget(self.tab, 2, 0, 1, 1)
         for r in range(2, 3):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(0, 1):
             self.top_grid_layout.setColumnStretch(c, 1)
-        self._rx_gain_range = Range(0, 76, 1, 20, 200)
+        self._rx_gain_range = Range(0, 76, 1, 40, 200)
         self._rx_gain_win = RangeWidget(self._rx_gain_range, self.set_rx_gain, 'Receiver Gain (dB)', "counter_slider", float)
         self.top_grid_layout.addWidget(self._rx_gain_win, 1, 0, 1, 1)
         for r in range(1, 2):
@@ -166,8 +172,62 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.uhd_usrp_sink_0.set_antenna('TX/RX', 0)
         self.uhd_usrp_sink_0.set_samp_rate(samp_rate)
         # No synchronization enforced.
+        self.qtgui_time_sink_x_0 = qtgui.time_sink_c(
+            number_of_points, #size
+            samp_rate, #samp_rate
+            "Time", #name
+            2 #number of inputs
+        )
+        self.qtgui_time_sink_x_0.set_update_time(0.10)
+        self.qtgui_time_sink_x_0.set_y_axis(-1, 1)
+
+        self.qtgui_time_sink_x_0.set_y_label('Amplitude', "")
+
+        self.qtgui_time_sink_x_0.enable_tags(True)
+        self.qtgui_time_sink_x_0.set_trigger_mode(qtgui.TRIG_MODE_FREE, qtgui.TRIG_SLOPE_POS, 0.0, 0, 0, "")
+        self.qtgui_time_sink_x_0.enable_autoscale(True)
+        self.qtgui_time_sink_x_0.enable_grid(False)
+        self.qtgui_time_sink_x_0.enable_axis_labels(True)
+        self.qtgui_time_sink_x_0.enable_control_panel(False)
+        self.qtgui_time_sink_x_0.enable_stem_plot(False)
+
+
+        labels = ['Transmitted (I)', 'Transmitted (Q)', 'Received (I)', 'Received (Q)', 'Signal 5',
+            'Signal 6', 'Signal 7', 'Signal 8', 'Signal 9', 'Signal 10']
+        widths = [1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1]
+        colors = ['blue', 'cyan', 'red', 'magenta', 'cyan',
+            'magenta', 'yellow', 'dark red', 'dark green', 'dark blue']
+        alphas = [1.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0, 1.0]
+        styles = [1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1]
+        markers = [-1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1]
+
+
+        for i in range(4):
+            if len(labels[i]) == 0:
+                if (i % 2 == 0):
+                    self.qtgui_time_sink_x_0.set_line_label(i, "Re{{Data {0}}}".format(i/2))
+                else:
+                    self.qtgui_time_sink_x_0.set_line_label(i, "Im{{Data {0}}}".format(i/2))
+            else:
+                self.qtgui_time_sink_x_0.set_line_label(i, labels[i])
+            self.qtgui_time_sink_x_0.set_line_width(i, widths[i])
+            self.qtgui_time_sink_x_0.set_line_color(i, colors[i])
+            self.qtgui_time_sink_x_0.set_line_style(i, styles[i])
+            self.qtgui_time_sink_x_0.set_line_marker(i, markers[i])
+            self.qtgui_time_sink_x_0.set_line_alpha(i, alphas[i])
+
+        self._qtgui_time_sink_x_0_win = sip.wrapinstance(self.qtgui_time_sink_x_0.pyqwidget(), Qt.QWidget)
+        self.tab_grid_layout_1.addWidget(self._qtgui_time_sink_x_0_win, 0, 0, 1, 1)
+        for r in range(0, 1):
+            self.tab_grid_layout_1.setRowStretch(r, 1)
+        for c in range(0, 1):
+            self.tab_grid_layout_1.setColumnStretch(c, 1)
         self.qtgui_freq_sink_x_0 = qtgui.freq_sink_c(
-            64, #size
+            number_of_points, #size
             firdes.WIN_BLACKMAN_hARRIS, #wintype
             center_freq, #fc
             samp_rate, #bw
@@ -211,7 +271,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         for c in range(0, 1):
             self.tab_grid_layout_0.setColumnStretch(c, 1)
         self.qtgui_const_sink_x_0 = qtgui.const_sink_c(
-            64, #size
+            number_of_points, #size
             "Constellation", #name
             2 #number of inputs
         )
@@ -224,7 +284,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.qtgui_const_sink_x_0.enable_axis_labels(True)
 
 
-        labels = ['', '', '', '', '',
+        labels = ['Transmitted', 'Received', '', '', '',
             '', '', '', '', '']
         widths = [1, 1, 1, 1, 1,
             1, 1, 1, 1, 1]
@@ -234,7 +294,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
             0, 0, 0, 0, 0]
         markers = [0, 0, 0, 0, 0,
             0, 0, 0, 0, 0]
-        alphas = [1.0, 1.0, 1.0, 1.0, 1.0,
+        alphas = [1.0, 1, 1.0, 1.0, 1.0,
             1.0, 1.0, 1.0, 1.0, 1.0]
 
         for i in range(2):
@@ -249,11 +309,11 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
             self.qtgui_const_sink_x_0.set_line_alpha(i, alphas[i])
 
         self._qtgui_const_sink_x_0_win = sip.wrapinstance(self.qtgui_const_sink_x_0.pyqwidget(), Qt.QWidget)
-        self.tab_grid_layout_1.addWidget(self._qtgui_const_sink_x_0_win, 0, 0, 1, 1)
+        self.tab_grid_layout_2.addWidget(self._qtgui_const_sink_x_0_win, 0, 0, 1, 1)
         for r in range(0, 1):
-            self.tab_grid_layout_1.setRowStretch(r, 1)
+            self.tab_grid_layout_2.setRowStretch(r, 1)
         for c in range(0, 1):
-            self.tab_grid_layout_1.setColumnStretch(c, 1)
+            self.tab_grid_layout_2.setColumnStretch(c, 1)
         self.fft_vxx_1_0 = fft.fft_vcc(fft_len, True, (), True, 1)
         self.fft_vxx_1 = fft.fft_vcc(fft_len, True, (), True, 1)
         self.fft_vxx_0 = fft.fft_vcc(fft_len, False, (), True, 1)
@@ -296,9 +356,9 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.blocks_multiply_xx_0 = blocks.multiply_vcc(1)
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_cc(0.05)
         self.blocks_message_debug_0 = blocks.message_debug()
-        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', True, 0, packet_len * packet_count)
+        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', False, 0, packet_len * packet_count)
         self.blocks_file_source_0.set_begin_tag(pmt.PMT_NIL)
-        self.blocks_file_sink_0 = blocks.file_sink(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/output.txt', False)
+        self.blocks_file_sink_0 = blocks.file_sink(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/received_bytes.txt', False)
         self.blocks_file_sink_0.set_unbuffered(True)
         self.blocks_delay_0 = blocks.delay(gr.sizeof_gr_complex*1, fft_len + cp_len)
         self.analog_frequency_modulator_fc_0 = analog.frequency_modulator_fc(-2.0/fft_len)
@@ -308,7 +368,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         ##################################################
         # Connections
         ##################################################
-        self.msg_connect((self.blocks_tagged_stream_to_pdu_0, 'pdus'), (self.blocks_message_debug_0, 'print_pdu'))
+        self.msg_connect((self.blocks_tagged_stream_to_pdu_0, 'pdus'), (self.blocks_message_debug_0, 'print'))
         self.msg_connect((self.digital_packet_headerparser_b_0, 'header_data'), (self.digital_header_payload_demux_0, 'header_data'))
         self.connect((self.analog_frequency_modulator_fc_0, 0), (self.blocks_multiply_xx_0, 1))
         self.connect((self.blocks_delay_0, 0), (self.blocks_multiply_xx_0, 0))
@@ -324,6 +384,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.blocks_stream_to_tagged_stream_0, 0), (self.digital_protocol_formatter_bb_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.qtgui_const_sink_x_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.qtgui_freq_sink_x_0, 0))
+        self.connect((self.blocks_tag_gate_0, 0), (self.qtgui_time_sink_x_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.uhd_usrp_sink_0, 0))
         self.connect((self.blocks_tagged_stream_mux_0, 0), (self.digital_ofdm_carrier_allocator_cvc_0, 0))
         self.connect((self.digital_chunks_to_symbols_xx_0, 0), (self.blocks_tagged_stream_mux_0, 0))
@@ -349,6 +410,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.uhd_usrp_source_0, 0), (self.digital_ofdm_sync_sc_cfb_0, 0))
         self.connect((self.uhd_usrp_source_0, 0), (self.qtgui_const_sink_x_0, 1))
         self.connect((self.uhd_usrp_source_0, 0), (self.qtgui_freq_sink_x_0, 1))
+        self.connect((self.uhd_usrp_source_0, 0), (self.qtgui_time_sink_x_0, 1))
 
     def closeEvent(self, event):
         self.settings = Qt.QSettings("GNU Radio", "usrp_ofdm_txrx")
@@ -474,6 +536,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
         self.qtgui_freq_sink_x_0.set_frequency_range(self.center_freq, self.samp_rate)
+        self.qtgui_time_sink_x_0.set_samp_rate(self.samp_rate)
         self.uhd_usrp_sink_0.set_samp_rate(self.samp_rate)
         self.uhd_usrp_source_0.set_samp_rate(self.samp_rate)
 
@@ -509,6 +572,12 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
 
     def set_packet_count(self, packet_count):
         self.packet_count = packet_count
+
+    def get_number_of_points(self):
+        return self.number_of_points
+
+    def set_number_of_points(self, number_of_points):
+        self.number_of_points = number_of_points
 
     def get_header_formatter(self):
         return self.header_formatter
