@@ -84,7 +84,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.occupied_carriers0 = occupied_carriers0 = [c for c in range(-carrier_count, carrier_count+1) if c not in pilot_carriers0 and c != 0]
         self.pilot_symbols = pilot_symbols = (pilot_symbols0,)
         self.pilot_carriers = pilot_carriers = (pilot_carriers0,)
-        self.payload_modulation = payload_modulation = digital.constellation_bpsk()
+        self.payload_modulation = payload_modulation = digital.constellation_qpsk()
         self.packet_len_key = packet_len_key = "packet_len"
         self.occupied_carriers = occupied_carriers = (occupied_carriers0,)
         self.header_modulation = header_modulation = digital.constellation_bpsk()
@@ -93,12 +93,12 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.tx_gain = tx_gain = 80
         self.sync_word2 = sync_word2 = [0, 0, 0, 0, 0, 0, -1, -1, -1, -1, 1, 1, -1, -1, -1, 1, -1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, 1, -1, -1, 1, -1, 0, 1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0]
         self.sync_word1 = sync_word1 = [0., 0., 0., 0., 0., 0., 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., -1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., -1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 1.41421356, 0., 0., 0., 0., 0., 0.]
-        self.samp_rate = samp_rate = int(5e6)
+        self.samp_rate = samp_rate = int(1e6)
         self.rx_gain = rx_gain = 40
         self.rolloff = rolloff = 0
         self.payload_equalizer = payload_equalizer = digital.ofdm_equalizer_simpledfe(fft_len, payload_modulation.base(), occupied_carriers, pilot_carriers, pilot_symbols, 1)
-        self.packet_len = packet_len = 96
-        self.packet_count = packet_count = 10000
+        self.packet_len = packet_len = 7
+        self.packet_count = packet_count = 1
         self.number_of_points = number_of_points = 1024
         self.header_formatter = header_formatter = digital.packet_header_ofdm(occupied_carriers, n_syms=1, len_tag_key=packet_len_key, frame_len_tag_key=frame_len_key, bits_per_header_sym=header_modulation.bits_per_symbol(), bits_per_payload_sym=payload_modulation.bits_per_symbol(), scramble_header=False)
         self.header_format = header_format = digital.header_format_ofdm(occupied_carriers, n_syms=1, len_key_name=packet_len_key, frame_key_name=frame_len_key, bits_per_header_sym=header_modulation.bits_per_symbol(), bits_per_payload_sym=payload_modulation.bits_per_symbol(), scramble_header=False)
@@ -339,6 +339,8 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
             samp_rate,
             (),
             0)
+        self.digital_crc32_bb_1 = digital.crc32_bb(True, packet_len_key, True)
+        self.digital_crc32_bb_0 = digital.crc32_bb(False, packet_len_key, True)
         self.digital_constellation_decoder_cb_0_0 = digital.constellation_decoder_cb(payload_modulation.base())
         self.digital_constellation_decoder_cb_0 = digital.constellation_decoder_cb(header_modulation.base())
         self.digital_chunks_to_symbols_xx_0_0 = digital.chunks_to_symbols_bc(payload_modulation.points(), payload_modulation.dimensionality())
@@ -356,7 +358,7 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.blocks_multiply_xx_0 = blocks.multiply_vcc(1)
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_cc(0.05)
         self.blocks_message_debug_0 = blocks.message_debug()
-        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/input.txt', False, 0, packet_len * packet_count)
+        self.blocks_file_source_0 = blocks.file_source(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/ceng513.txt', True, 0, packet_len * packet_count)
         self.blocks_file_source_0.set_begin_tag(pmt.PMT_NIL)
         self.blocks_file_sink_0 = blocks.file_sink(gr.sizeof_char*1, '/home/berker/Desktop/ceng513/files/received_bytes.txt', False)
         self.blocks_file_sink_0.set_unbuffered(True)
@@ -377,11 +379,8 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.blocks_multiply_xx_0, 0), (self.digital_header_payload_demux_0, 0))
         self.connect((self.blocks_repack_bits_bb_0, 0), (self.digital_chunks_to_symbols_xx_0_0, 0))
         self.connect((self.blocks_repack_bits_bb_1, 0), (self.digital_chunks_to_symbols_xx_0, 0))
-        self.connect((self.blocks_repack_bits_bb_2, 0), (self.blocks_file_sink_0, 0))
-        self.connect((self.blocks_repack_bits_bb_2, 0), (self.blocks_tag_debug_0, 0))
-        self.connect((self.blocks_repack_bits_bb_2, 0), (self.blocks_tagged_stream_to_pdu_0, 0))
-        self.connect((self.blocks_stream_to_tagged_stream_0, 0), (self.blocks_repack_bits_bb_0, 0))
-        self.connect((self.blocks_stream_to_tagged_stream_0, 0), (self.digital_protocol_formatter_bb_0, 0))
+        self.connect((self.blocks_repack_bits_bb_2, 0), (self.digital_crc32_bb_1, 0))
+        self.connect((self.blocks_stream_to_tagged_stream_0, 0), (self.digital_crc32_bb_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.qtgui_const_sink_x_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.qtgui_freq_sink_x_0, 0))
         self.connect((self.blocks_tag_gate_0, 0), (self.qtgui_time_sink_x_0, 0))
@@ -391,6 +390,11 @@ class usrp_ofdm_txrx(gr.top_block, Qt.QWidget):
         self.connect((self.digital_chunks_to_symbols_xx_0_0, 0), (self.blocks_tagged_stream_mux_0, 1))
         self.connect((self.digital_constellation_decoder_cb_0, 0), (self.digital_packet_headerparser_b_0, 0))
         self.connect((self.digital_constellation_decoder_cb_0_0, 0), (self.blocks_repack_bits_bb_2, 0))
+        self.connect((self.digital_crc32_bb_0, 0), (self.blocks_repack_bits_bb_0, 0))
+        self.connect((self.digital_crc32_bb_0, 0), (self.digital_protocol_formatter_bb_0, 0))
+        self.connect((self.digital_crc32_bb_1, 0), (self.blocks_file_sink_0, 0))
+        self.connect((self.digital_crc32_bb_1, 0), (self.blocks_tag_debug_0, 0))
+        self.connect((self.digital_crc32_bb_1, 0), (self.blocks_tagged_stream_to_pdu_0, 0))
         self.connect((self.digital_header_payload_demux_0, 0), (self.fft_vxx_1, 0))
         self.connect((self.digital_header_payload_demux_0, 1), (self.fft_vxx_1_0, 0))
         self.connect((self.digital_ofdm_carrier_allocator_cvc_0, 0), (self.fft_vxx_0, 0))

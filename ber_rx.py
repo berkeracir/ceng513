@@ -11,7 +11,7 @@ def bit_difference(b1, b2):
         diff += 1
     return diff
 
-if len(sys.argv[1:]) != 2:
+if len(sys.argv[1:]) != 3:
     print("File path or file paths missing.")
     sys.exit()
 else:
@@ -23,13 +23,17 @@ else:
     if not os.path.isfile(sys.argv[2]):
         print(f"File does not exist in path: '{sys.argv[2]}'")
         exit = True
+    if not os.path.isfile(sys.argv[3]):
+        print(f"File does not exist in path: '{sys.argv[3]}'")
+        exit = True
     if exit:
         sys.exit()
 
 file1 = sys.argv[1]
 file2 = sys.argv[2]
+file3 = sys.argv[3]
 
-file1_size = os.stat(file1).st_size
+# file1_size = os.stat(file1).st_size
 file2_size = os.path.getsize(file2)
 
 # print(f"Packet from {file1}: {file1_size} bytes")
@@ -56,13 +60,35 @@ with open(file2, 'rb') as f2:
         bit_difference_count += bit_diff
 
 ber = bit_difference_count / (read_bytes * 8)
-print(f"Bit Error Rate in Received Packets: {ber} -> {bit_difference_count} different bits in {read_bytes * 8} bits ({read_bytes/packet_len} packets).")
+# print(f"Bit Error Rate in Received Packets: {ber} -> {bit_difference_count} different bits in {read_bytes * 8} bits ({read_bytes/packet_len} packets).")
 
 transmission_count = 10000
 total_transmitted_bytes = packet_len * transmission_count
 not_received_bytes = total_transmitted_bytes - read_bytes
-not_received_bits = not_received_bytes * 8
+not_received_bits = not_received_bytes * 8.0
 total_ber = (bit_difference_count + not_received_bits) / (total_transmitted_bytes * 8)
-print(f"Total Bit Error Rate: {total_ber} -> {bit_difference_count} different bits, {not_received_bytes/packet_len} not received packets in {total_transmitted_bytes * 8} bits ({total_transmitted_bytes/packet_len} packets).")
+# print(f"Total Bit Error Rate: {total_ber} -> {bit_difference_count} different bits, {not_received_bytes/packet_len} not received packets in {total_transmitted_bytes * 8} bits ({total_transmitted_bytes/packet_len} packets).")
 
-print(f"BER: {ber:.10f}, Undetected Packet Count: {not_received_bytes//packet_len}")
+rx_time = 0
+with open(file3, mode='r', encoding='ISO-8859-1') as f3:
+    lines = f3.readlines()
+
+    for i in range(len(lines)):
+        line = lines[i]
+
+        if 'rx_time' in line:
+            s1, s2 = line.strip().split('rx_time')[1].split('{')[1].split('}')[0].split(' ')
+            first_rx_time = int(s1) + float(s2)
+            rx_time -= first_rx_time
+            break
+    
+    for i in reversed(range(len(lines))):
+        line = lines[i]
+
+        if 'rx_time' in line:
+            s1, s2 = line.strip().split('rx_time')[1].split('{')[1].split('}')[0].split(' ')
+            last_rx_time = int(s1) + float(s2)
+            rx_time += last_rx_time
+            break
+
+print(f"BER: {ber:.10f}, Undetected Packet Count: {not_received_bytes/packet_len}, RX Time: {rx_time:.5f}")
